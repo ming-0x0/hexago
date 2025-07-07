@@ -26,6 +26,28 @@ type AdapterInterface[D, E any] interface {
 	ToEntities([]*D) ([]*E, error)
 }
 
+type Adapter[D, E any] struct{}
+
+func NewAdapter[D, E any]() AdapterInterface[D, E] {
+	return &Adapter[D, E]{}
+}
+
+func (a *Adapter[D, E]) ToDomain(entity *E) (*D, error) {
+	return nil, nil
+}
+
+func (a *Adapter[D, E]) ToEntity(domain *D) (*E, error) {
+	return nil, nil
+}
+
+func (a *Adapter[D, E]) ToDomains(entities []*E) ([]*D, error) {
+	return nil, nil
+}
+
+func (a *Adapter[D, E]) ToEntities(domains []*D) ([]*E, error) {
+	return nil, nil
+}
+
 //go:generate mockgen -destination mock_repository_test.go -package repository github.com/ming-0x0/hexago/internal/shared/repository RepositoryInterface
 type RepositoryInterface[A AdapterInterface[D, E], D, E any] interface {
 	Create(
