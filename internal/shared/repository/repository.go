@@ -2,7 +2,9 @@ package repository
 
 import (
 	"context"
+	"errors"
 
+	sharedErrors "github.com/ming-0x0/hexago/internal/shared/errors"
 	"github.com/ming-0x0/hexago/internal/shared/transaction"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
@@ -24,6 +26,7 @@ type AdapterInterface[D, E any] interface {
 	ToEntities([]*D) ([]*E, error)
 }
 
+//go:generate mockgen -destination mock_repository_test.go -package repository github.com/ming-0x0/hexago/internal/shared/repository RepositoryInterface
 type RepositoryInterface[A AdapterInterface[D, E], D, E any] interface {
 	Create(
 		ctx context.Context,
@@ -107,7 +110,12 @@ func (r *Repository[A, D, E]) Create(
 		return err
 	}
 
-	return r.DB(ctx).Create(entity).Error
+	err = r.DB(ctx).Create(entity).Error
+	if err != nil {
+		return sharedErrors.NewDomainError(sharedErrors.System, err.Error())
+	}
+
+	return nil
 }
 
 func (r *Repository[A, D, E]) FindByConditions(
@@ -117,7 +125,7 @@ func (r *Repository[A, D, E]) FindByConditions(
 ) ([]*D, error) {
 	var entities []*E
 	if err := r.DB(ctx).Scopes(scopes...).Where(conditions).Find(&entities).Error; err != nil {
-		return nil, err
+		return nil, sharedErrors.NewDomainError(sharedErrors.System, err.Error())
 	}
 
 	return r.adapter.ToDomains(entities)
@@ -129,8 +137,13 @@ func (r *Repository[A, D, E]) TakeByConditions(
 	scopes ...func(*gorm.DB) *gorm.DB,
 ) (*D, error) {
 	entity := new(E)
-	if err := r.DB(ctx).Scopes(scopes...).Where(conditions).Take(entity).Error; err != nil {
-		return nil, err
+	err := r.DB(ctx).Scopes(scopes...).Where(conditions).Take(entity).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, sharedErrors.NewDomainError(sharedErrors.NotFound, err.Error())
+		}
+
+		return nil, sharedErrors.NewDomainError(sharedErrors.System, err.Error())
 	}
 
 	return r.adapter.ToDomain(entity)
@@ -145,7 +158,12 @@ func (r *Repository[A, D, E]) Save(
 		return err
 	}
 
-	return r.DB(ctx).Save(entity).Error
+	err = r.DB(ctx).Save(entity).Error
+	if err != nil {
+		return sharedErrors.NewDomainError(sharedErrors.System, err.Error())
+	}
+
+	return nil
 }
 
 func (r *Repository[A, D, E]) DeleteByConditions(
@@ -153,7 +171,12 @@ func (r *Repository[A, D, E]) DeleteByConditions(
 	conditions map[string]any,
 ) error {
 	entity := new(E)
-	return r.DB(ctx).Where(conditions).Delete(entity).Error
+	err := r.DB(ctx).Where(conditions).Delete(entity).Error
+	if err != nil {
+		return sharedErrors.NewDomainError(sharedErrors.System, err.Error())
+	}
+
+	return nil
 }
 
 func (r *Repository[A, D, E]) FindByConditionsWithPagination(
@@ -172,13 +195,13 @@ func (r *Repository[A, D, E]) FindByConditionsWithPagination(
 
 	err := countBuilder.Scopes(scopes...).Where(conditions).Count(&count).Error
 	if err != nil {
-		return []*D{}, 0, err
+		return []*D{}, 0, sharedErrors.NewDomainError(sharedErrors.System, err.Error())
 	}
 
 	var entities []*E
 	err = queryBuilder.Scopes(scopes...).Where(conditions).Find(&entities).Error
 	if err != nil {
-		return []*D{}, 0, err
+		return []*D{}, 0, sharedErrors.NewDomainError(sharedErrors.System, err.Error())
 	}
 
 	domains, err := r.adapter.ToDomains(entities)

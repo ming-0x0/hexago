@@ -3,22 +3,9 @@ package errors
 import "errors"
 
 type DomainError struct {
-	ErrType ErrorType
+	ErrCode ErrorCode
 	err     error
 }
-
-type ErrorType int
-
-const (
-	// common 1 -> 1000
-	System ErrorType = iota + 1
-	Validation
-	NotAuthorized
-	Forbidden
-	NotFound
-	AlreadyExist
-	// module specific 1001 -> 2000
-)
 
 func (e *DomainError) Error() string {
 	if e == nil {
@@ -34,15 +21,16 @@ func (e *DomainError) Unwrap() error {
 	return e.err
 }
 
-func (e *DomainError) GetType() ErrorType {
+func (e *DomainError) ErrorCode() ErrorCode {
 	if e == nil {
 		return System
 	}
-	return e.ErrType
+	return e.ErrCode
 }
-func NewDomainError(errType ErrorType, message string) *DomainError {
+
+func NewDomainError(errCode ErrorCode, message string) *DomainError {
 	return &DomainError{
-		ErrType: errType,
+		ErrCode: errCode,
 		err:     errors.New(message),
 	}
 }
