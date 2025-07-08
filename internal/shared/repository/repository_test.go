@@ -6,6 +6,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/ming-0x0/hexago/internal/shared/dbmocker"
+	"github.com/ming-0x0/hexago/internal/shared/transaction"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/gorm"
@@ -418,4 +419,40 @@ func TestRepository_FindByConditionsWithPagination(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRepository_DB_WithTransaction(t *testing.T) {
+	t.Parallel()
+
+	t.Run("TransactionInContext", func(t *testing.T) {
+		t.Parallel()
+		repo, mockedDB, gormDB, _, _, _ := setupTest(t)
+		defer teardownTest(mockedDB)
+
+		// Create a mock transaction
+		tx := gormDB.Begin()
+		ctx := context.WithValue(context.Background(), transaction.Tx, tx)
+
+		// Get DB from context with transaction
+		db := repo.DB(ctx)
+
+		// Verify that the returned DB is the transaction
+		assert.Equal(t, tx, db)
+	})
+
+	t.Run("NoTransactionInContext", func(t *testing.T) {
+		t.Parallel()
+		repo, mockedDB, gormDB, _, _, _ := setupTest(t)
+		defer teardownTest(mockedDB)
+
+		// Use a context without a transaction
+		ctx := context.Background()
+
+		// Get DB from context without transaction
+		db := repo.DB(ctx)
+
+		// Verify that the returned DB is the default DB with context
+		assert.NotEqual(t, gormDB, db) // It's a new instance with context
+		assert.Equal(t, ctx, db.Statement.Context)
+	})
 }
