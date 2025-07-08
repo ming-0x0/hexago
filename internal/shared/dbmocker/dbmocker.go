@@ -7,13 +7,14 @@ import (
 	"github.com/sirupsen/logrus"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	gormLog "gorm.io/gorm/logger"
 )
 
 type MockedRepository struct {
-	Logger  *logrus.Logger
 	DB      *sql.DB
 	GormDB  *gorm.DB
 	SqlMock sqlmock.Sqlmock
+	Logger  *logrus.Logger
 }
 
 func NewMockedDB() (*MockedRepository, error) {
@@ -30,6 +31,10 @@ func NewMockedDB() (*MockedRepository, error) {
 	sqlMock.MatchExpectationsInOrder(false)
 
 	gormConfig := &gorm.Config{}
+	gormConfig.Logger = gormLog.New(logger, gormLog.Config{
+		LogLevel: gormLog.Warn,
+		Colorful: true,
+	})
 
 	gormDB, err := gorm.Open(
 		mysql.New(mysql.Config{
@@ -43,9 +48,9 @@ func NewMockedDB() (*MockedRepository, error) {
 	}
 
 	return &MockedRepository{
-		Logger:  logger,
 		DB:      db,
 		GormDB:  gormDB,
 		SqlMock: sqlMock,
+		Logger:  logger,
 	}, nil
 }

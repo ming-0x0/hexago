@@ -18,6 +18,6 @@ type CustomerRepository struct {
 
 func New(db *gorm.DB, logger *logrus.Logger, adapter CustomerAdapterInterface) CustomerRepositoryInterface {
 	return &CustomerRepository{
-		repository.NewRepository(db, logger, adapter).(*repository.Repository[CustomerAdapterInterface, customer.Customer, entity.Customer]),
+		repository.NewRepository(db, logger, adapter),
 	}
 }

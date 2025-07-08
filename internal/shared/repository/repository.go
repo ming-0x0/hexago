@@ -26,29 +26,7 @@ type AdapterInterface[D, E any] interface {
 	ToEntities([]*D) ([]*E, error)
 }
 
-type Adapter[D, E any] struct{}
-
-func NewAdapter[D, E any]() AdapterInterface[D, E] {
-	return &Adapter[D, E]{}
-}
-
-func (a *Adapter[D, E]) ToDomain(entity *E) (*D, error) {
-	return nil, nil
-}
-
-func (a *Adapter[D, E]) ToEntity(domain *D) (*E, error) {
-	return nil, nil
-}
-
-func (a *Adapter[D, E]) ToDomains(entities []*E) ([]*D, error) {
-	return nil, nil
-}
-
-func (a *Adapter[D, E]) ToEntities(domains []*D) ([]*E, error) {
-	return nil, nil
-}
-
-//go:generate mockgen -destination mock_repository_test.go -package repository github.com/ming-0x0/hexago/internal/shared/repository RepositoryInterface
+//go:generate go tool mockgen -destination mock/repository.go -package mock github.com/ming-0x0/hexago/internal/shared/repository RepositoryInterface
 type RepositoryInterface[A AdapterInterface[D, E], D, E any] interface {
 	Create(
 		ctx context.Context,
@@ -90,7 +68,7 @@ func NewRepository[A AdapterInterface[D, E], D, E any](
 	db *gorm.DB,
 	logger *logrus.Logger,
 	adapter A,
-) RepositoryInterface[A, D, E] {
+) *Repository[A, D, E] {
 	return &Repository[A, D, E]{
 		db:      db,
 		logger:  logger,
@@ -209,10 +187,10 @@ func (r *Repository[A, D, E]) FindByConditionsWithPagination(
 ) ([]*D, int64, error) {
 	cdb := r.DB(ctx)
 
-	var result []*D
+	var entities []*E
 	var count int64
 
-	countBuilder := cdb.Model(&result)
+	countBuilder := cdb.Model(&entities)
 	queryBuilder := cdb.Scopes(r.pagination(pageData))
 
 	err := countBuilder.Scopes(scopes...).Where(conditions).Count(&count).Error
@@ -220,7 +198,6 @@ func (r *Repository[A, D, E]) FindByConditionsWithPagination(
 		return []*D{}, 0, sharedErrors.NewDomainError(sharedErrors.System, err.Error())
 	}
 
-	var entities []*E
 	err = queryBuilder.Scopes(scopes...).Where(conditions).Find(&entities).Error
 	if err != nil {
 		return []*D{}, 0, sharedErrors.NewDomainError(sharedErrors.System, err.Error())
