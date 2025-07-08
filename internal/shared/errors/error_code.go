@@ -2,7 +2,7 @@ package errors
 
 type ErrorCode int
 
-func (e ErrorCode) Value() int {
+func (e ErrorCode) Code() int {
 	return int(e)
 }
 

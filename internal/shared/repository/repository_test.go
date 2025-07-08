@@ -6,6 +6,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/ming-0x0/hexago/internal/shared/dbmocker"
+	"github.com/ming-0x0/hexago/internal/shared/errors"
 	"github.com/ming-0x0/hexago/internal/shared/transaction"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -30,18 +31,34 @@ type DummyAdapterInterface interface {
 	ToEntities([]*DummyDomain) ([]*DummyEntity, error)
 }
 
-// DummyAdapter is a concrete implementation of DummyAdapterInterface.
-type DummyAdapter struct{}
+// DummyAdapter is a concrete implementation of DummyAdapterInterface with configurable error injection for testing.
+type DummyAdapter struct {
+	// Flags to simulate errors in adapter methods
+	ShouldFailToDomain   bool
+	ShouldFailToEntity   bool
+	ShouldFailToDomains  bool
+	ShouldFailToEntities bool
+}
 
-func (a DummyAdapter) ToDomain(entity *DummyEntity) (*DummyDomain, error) {
+func (a *DummyAdapter) ToDomain(entity *DummyEntity) (*DummyDomain, error) {
+	if a.ShouldFailToDomain {
+		return nil, errors.NewDomainError(errors.Validation, "failed to convert to domain")
+	}
 	return &DummyDomain{ID: entity.ID, Name: entity.Name}, nil
 }
 
-func (a DummyAdapter) ToEntity(domain *DummyDomain) (*DummyEntity, error) {
+func (a *DummyAdapter) ToEntity(domain *DummyDomain) (*DummyEntity, error) {
+	if a.ShouldFailToEntity {
+		return nil, errors.NewDomainError(errors.Validation, "failed to convert to entity")
+	}
 	return &DummyEntity{ID: domain.ID, Name: domain.Name}, nil
 }
 
-func (a DummyAdapter) ToDomains(entities []*DummyEntity) ([]*DummyDomain, error) {
+func (a *DummyAdapter) ToDomains(entities []*DummyEntity) ([]*DummyDomain, error) {
+	if a.ShouldFailToDomains {
+		return nil, errors.NewDomainError(errors.Validation, "failed to convert to domains")
+	}
+
 	domains := make([]*DummyDomain, len(entities))
 	for i, e := range entities {
 		d, err := a.ToDomain(e)
@@ -53,7 +70,11 @@ func (a DummyAdapter) ToDomains(entities []*DummyEntity) ([]*DummyDomain, error)
 	return domains, nil
 }
 
-func (a DummyAdapter) ToEntities(domains []*DummyDomain) ([]*DummyEntity, error) {
+func (a *DummyAdapter) ToEntities(domains []*DummyDomain) ([]*DummyEntity, error) {
+	if a.ShouldFailToEntities {
+		return nil, errors.NewDomainError(errors.Validation, "failed to convert to entities")
+	}
+
 	entities := make([]*DummyEntity, len(domains))
 	for i, d := range domains {
 		e, err := a.ToEntity(d)
@@ -65,14 +86,15 @@ func (a DummyAdapter) ToEntities(domains []*DummyDomain) ([]*DummyEntity, error)
 	return entities, nil
 }
 
-func setupTest(t *testing.T) (*Repository[DummyAdapter, DummyDomain, DummyEntity], *dbmocker.MockedRepository, *gorm.DB, sqlmock.Sqlmock, DummyAdapter, *logrus.Logger) {
+func setupTest(t *testing.T, adapterConfig DummyAdapter) (*Repository[*DummyAdapter, DummyDomain, DummyEntity], *dbmocker.MockedRepository, *gorm.DB, sqlmock.Sqlmock, *DummyAdapter, *logrus.Logger) {
 	logger := logrus.New()
 	mockedDB, err := dbmocker.NewMockedDB()
 	if err != nil {
 		t.Fatalf("error when creating mock DB: %v", err)
 	}
 	_, gormDB, sqlMock := mockedDB.DB, mockedDB.GormDB, mockedDB.SqlMock
-	adapter := DummyAdapter{}
+
+	adapter := &adapterConfig
 	repo := NewRepository(gormDB, logger, adapter)
 	return repo, mockedDB, gormDB, sqlMock, adapter, logger
 }
@@ -91,30 +113,40 @@ func TestRepository_Create(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
-		args      args
-		setupMock func(sqlmock.Sqlmock)
-		assertion assert.ErrorAssertionFunc
+		name          string
+		args          args
+		adapterConfig DummyAdapter
+		setupMock     func(sqlmock.Sqlmock)
+		assertion     assert.ErrorAssertionFunc
 	}{
 		{
-			name: "Success",
-			args: args{domain: &DummyDomain{ID: 1, Name: "Test"}},
+			name:          "Success",
+			args:          args{domain: &DummyDomain{ID: 1, Name: "Test"}},
+			adapterConfig: DummyAdapter{},
 			setupMock: func(mock sqlmock.Sqlmock) {
 				mock.ExpectBegin()
-				mock.ExpectExec("INSERT INTO `dummy_entities` \\(`name`,`id`\\) VALUES \\(\\?,\\?\\)").WithArgs("Test", 1).WillReturnResult(sqlmock.NewResult(1, 1))
+				mock.ExpectExec("INSERT INTO `dummy_entities`").WillReturnResult(sqlmock.NewResult(1, 1))
 				mock.ExpectCommit()
 			},
 			assertion: assert.NoError,
 		},
 		{
-			name: "Failure_DBError",
-			args: args{domain: &DummyDomain{ID: 1, Name: "Test"}},
+			name:          "Failure_DBError",
+			args:          args{domain: &DummyDomain{ID: 1, Name: "Test"}},
+			adapterConfig: DummyAdapter{},
 			setupMock: func(mock sqlmock.Sqlmock) {
 				mock.ExpectBegin()
-				mock.ExpectExec("INSERT INTO `dummy_entities` \\(`name`,`id`\\) VALUES \\(\\?,\\?\\)").WithArgs("Test", 1).WillReturnError(gorm.ErrInvalidData)
+				mock.ExpectExec("INSERT INTO `dummy_entities`").WillReturnError(gorm.ErrInvalidData)
 				mock.ExpectRollback()
 			},
 			assertion: assert.Error,
+		},
+		{
+			name:          "Failure_AdapterToEntityError",
+			args:          args{domain: &DummyDomain{ID: 1, Name: "Test"}},
+			adapterConfig: DummyAdapter{ShouldFailToEntity: true},
+			setupMock:     func(mock sqlmock.Sqlmock) {},
+			assertion:     assert.Error,
 		},
 	}
 
@@ -122,7 +154,7 @@ func TestRepository_Create(t *testing.T) {
 		tc := tt
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			repo, mockedDB, _, sqlMock, _, _ := setupTest(t)
+			repo, mockedDB, _, sqlMock, _, _ := setupTest(t, tc.adapterConfig)
 			defer teardownTest(mockedDB)
 
 			tc.setupMock(sqlMock)
@@ -140,15 +172,17 @@ func TestRepository_FindByConditions(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
-		args      args
-		setupMock func(sqlmock.Sqlmock)
-		assertion assert.ErrorAssertionFunc
-		expected  []*DummyDomain
+		name          string
+		args          args
+		adapterConfig DummyAdapter
+		setupMock     func(sqlmock.Sqlmock)
+		assertion     assert.ErrorAssertionFunc
+		expected      []*DummyDomain
 	}{
 		{
-			name: "Success",
-			args: args{conditions: map[string]any{"name": "Test"}},
+			name:          "Success",
+			args:          args{conditions: map[string]any{"name": "Test"}},
+			adapterConfig: DummyAdapter{},
 			setupMock: func(mock sqlmock.Sqlmock) {
 				rows := sqlmock.NewRows([]string{"id", "name"}).
 					AddRow(1, "Test1").
@@ -159,10 +193,24 @@ func TestRepository_FindByConditions(t *testing.T) {
 			expected:  []*DummyDomain{{ID: 1, Name: "Test1"}, {ID: 2, Name: "Test2"}},
 		},
 		{
-			name: "Failure_DBError",
-			args: args{conditions: map[string]any{"name": "Test"}},
+			name:          "Failure_DBError",
+			args:          args{conditions: map[string]any{"name": "Test"}},
+			adapterConfig: DummyAdapter{},
 			setupMock: func(mock sqlmock.Sqlmock) {
 				mock.ExpectQuery("SELECT (.+) FROM `dummy_entities`").WillReturnError(gorm.ErrInvalidField)
+			},
+			assertion: assert.Error,
+			expected:  nil,
+		},
+		{
+			name:          "Failure_AdapterToDomainsError",
+			args:          args{conditions: map[string]any{"name": "Test"}},
+			adapterConfig: DummyAdapter{ShouldFailToDomains: true},
+			setupMock: func(mock sqlmock.Sqlmock) {
+				rows := sqlmock.NewRows([]string{"id", "name"}).
+					AddRow(1, "Test1").
+					AddRow(2, "Test2")
+				mock.ExpectQuery("SELECT (.+) FROM `dummy_entities`").WillReturnRows(rows)
 			},
 			assertion: assert.Error,
 			expected:  nil,
@@ -173,7 +221,7 @@ func TestRepository_FindByConditions(t *testing.T) {
 		tc := tt
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			repo, mockedDB, _, sqlMock, _, _ := setupTest(t)
+			repo, mockedDB, _, sqlMock, _, _ := setupTest(t, tc.adapterConfig)
 			defer teardownTest(mockedDB)
 
 			tc.setupMock(sqlMock)
@@ -194,15 +242,17 @@ func TestRepository_TakeByConditions(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
-		args      args
-		setupMock func(sqlmock.Sqlmock)
-		assertion assert.ErrorAssertionFunc
-		expected  *DummyDomain
+		name          string
+		args          args
+		adapterConfig DummyAdapter
+		setupMock     func(sqlmock.Sqlmock)
+		assertion     assert.ErrorAssertionFunc
+		expected      *DummyDomain
 	}{
 		{
-			name: "Success",
-			args: args{conditions: map[string]any{"id": 1}},
+			name:          "Success",
+			args:          args{conditions: map[string]any{"id": 1}},
+			adapterConfig: DummyAdapter{},
 			setupMock: func(mock sqlmock.Sqlmock) {
 				rows := sqlmock.NewRows([]string{"id", "name"}).AddRow(1, "Test")
 				mock.ExpectQuery("SELECT (.+) FROM `dummy_entities`").WillReturnRows(rows)
@@ -211,10 +261,32 @@ func TestRepository_TakeByConditions(t *testing.T) {
 			expected:  &DummyDomain{ID: 1, Name: "Test"},
 		},
 		{
-			name: "Failure_NotFound",
-			args: args{conditions: map[string]any{"id": 1}},
+			name:          "Failure_NotFound",
+			args:          args{conditions: map[string]any{"id": 1}},
+			adapterConfig: DummyAdapter{},
 			setupMock: func(mock sqlmock.Sqlmock) {
 				mock.ExpectQuery("SELECT (.+) FROM `dummy_entities`").WillReturnError(gorm.ErrRecordNotFound)
+			},
+			assertion: assert.Error,
+			expected:  nil,
+		},
+		{
+			name:          "Failure_AdapterToDomainError",
+			args:          args{conditions: map[string]any{"id": 1}},
+			adapterConfig: DummyAdapter{ShouldFailToDomain: true},
+			setupMock: func(mock sqlmock.Sqlmock) {
+				rows := sqlmock.NewRows([]string{"id", "name"}).AddRow(1, "Test")
+				mock.ExpectQuery("SELECT (.+) FROM `dummy_entities`").WillReturnRows(rows)
+			},
+			assertion: assert.Error,
+			expected:  nil,
+		},
+		{
+			name:          "Failure_DBError",
+			args:          args{conditions: map[string]any{"id": 1}},
+			adapterConfig: DummyAdapter{},
+			setupMock: func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery("SELECT (.+) FROM `dummy_entities`").WillReturnError(gorm.ErrInvalidField)
 			},
 			assertion: assert.Error,
 			expected:  nil,
@@ -225,7 +297,7 @@ func TestRepository_TakeByConditions(t *testing.T) {
 		tc := tt
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			repo, mockedDB, _, sqlMock, _, _ := setupTest(t)
+			repo, mockedDB, _, sqlMock, _, _ := setupTest(t, tc.adapterConfig)
 			defer teardownTest(mockedDB)
 
 			tc.setupMock(sqlMock)
@@ -246,14 +318,16 @@ func TestRepository_Save(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
-		args      args
-		setupMock func(sqlmock.Sqlmock)
-		assertion assert.ErrorAssertionFunc
+		name          string
+		args          args
+		adapterConfig DummyAdapter
+		setupMock     func(sqlmock.Sqlmock)
+		assertion     assert.ErrorAssertionFunc
 	}{
 		{
-			name: "Success",
-			args: args{domain: &DummyDomain{ID: 1, Name: "Updated"}},
+			name:          "Success",
+			args:          args{domain: &DummyDomain{ID: 1, Name: "Updated"}},
+			adapterConfig: DummyAdapter{},
 			setupMock: func(mock sqlmock.Sqlmock) {
 				mock.ExpectBegin()
 				mock.ExpectExec("UPDATE `dummy_entities`").WillReturnResult(sqlmock.NewResult(1, 1))
@@ -262,8 +336,9 @@ func TestRepository_Save(t *testing.T) {
 			assertion: assert.NoError,
 		},
 		{
-			name: "Failure_DBError",
-			args: args{domain: &DummyDomain{ID: 1, Name: "Updated"}},
+			name:          "Failure_DBError",
+			args:          args{domain: &DummyDomain{ID: 1, Name: "Updated"}},
+			adapterConfig: DummyAdapter{},
 			setupMock: func(mock sqlmock.Sqlmock) {
 				mock.ExpectBegin()
 				mock.ExpectExec("UPDATE `dummy_entities`").WillReturnError(gorm.ErrInvalidData)
@@ -271,13 +346,20 @@ func TestRepository_Save(t *testing.T) {
 			},
 			assertion: assert.Error,
 		},
+		{
+			name:          "Failure_AdapterToEntityError",
+			args:          args{domain: &DummyDomain{ID: 1, Name: "Updated"}},
+			adapterConfig: DummyAdapter{ShouldFailToEntity: true},
+			setupMock:     func(mock sqlmock.Sqlmock) {},
+			assertion:     assert.Error,
+		},
 	}
 
 	for _, tt := range tests {
 		tc := tt
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			repo, mockedDB, _, sqlMock, _, _ := setupTest(t)
+			repo, mockedDB, _, sqlMock, _, _ := setupTest(t, tc.adapterConfig)
 			defer teardownTest(mockedDB)
 
 			tc.setupMock(sqlMock)
@@ -326,7 +408,7 @@ func TestRepository_DeleteByConditions(t *testing.T) {
 		tc := tt
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			repo, mockedDB, _, sqlMock, _, _ := setupTest(t)
+			repo, mockedDB, _, sqlMock, _, _ := setupTest(t, DummyAdapter{})
 			defer teardownTest(mockedDB)
 
 			tc.setupMock(sqlMock)
@@ -345,21 +427,23 @@ func TestRepository_FindByConditionsWithPagination(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
-		args      args
-		setupMock func(sqlmock.Sqlmock)
-		assertion assert.ErrorAssertionFunc
-		expected  []*DummyDomain
-		count     int64
+		name          string
+		args          args
+		adapterConfig DummyAdapter
+		setupMock     func(sqlmock.Sqlmock)
+		assertion     assert.ErrorAssertionFunc
+		expected      []*DummyDomain
+		count         int64
 	}{
 		{
-			name: "Success",
+			name: "Success_DefaultPagination",
 			args: args{
-				pagination: map[string]int{"page": 1, "limit": 2},
+				pagination: map[string]int{}, // Empty map to test default pagination values
 				conditions: map[string]any{"name": "Test"},
 			},
+			adapterConfig: DummyAdapter{},
 			setupMock: func(mock sqlmock.Sqlmock) {
-				countRows := sqlmock.NewRows([]string{"count"}).AddRow(2)
+				countRows := sqlmock.NewRows([]string{"count"}).AddRow(5)
 				rows := sqlmock.NewRows([]string{"id", "name"}).
 					AddRow(1, "Test1").
 					AddRow(2, "Test2")
@@ -371,7 +455,53 @@ func TestRepository_FindByConditionsWithPagination(t *testing.T) {
 				{ID: 1, Name: "Test1"},
 				{ID: 2, Name: "Test2"},
 			},
-			count: 2,
+			count: 5,
+		},
+		{
+			name: "Success_CustomPagination",
+			args: args{
+				pagination: map[string]int{"page": 2, "limit": 3},
+				conditions: map[string]any{"name": "Test"},
+			},
+			adapterConfig: DummyAdapter{},
+			setupMock: func(mock sqlmock.Sqlmock) {
+				countRows := sqlmock.NewRows([]string{"count"}).AddRow(10)
+				rows := sqlmock.NewRows([]string{"id", "name"}).
+					AddRow(4, "Test4").
+					AddRow(5, "Test5").
+					AddRow(6, "Test6")
+				mock.ExpectQuery("SELECT count\\(\\*\\) FROM `dummy_entities`").WillReturnRows(countRows)
+				mock.ExpectQuery("SELECT (.+) FROM `dummy_entities`").WillReturnRows(rows)
+			},
+			assertion: assert.NoError,
+			expected: []*DummyDomain{
+				{ID: 4, Name: "Test4"},
+				{ID: 5, Name: "Test5"},
+				{ID: 6, Name: "Test6"},
+			},
+			count: 10,
+		},
+		{
+			name: "Success_ZeroPageAndLimit",
+			args: args{
+				pagination: map[string]int{"page": 0, "limit": 0}, // Test handling of zero or invalid values
+				conditions: map[string]any{"name": "Test"},
+			},
+			adapterConfig: DummyAdapter{},
+			setupMock: func(mock sqlmock.Sqlmock) {
+				countRows := sqlmock.NewRows([]string{"count"}).AddRow(5)
+				rows := sqlmock.NewRows([]string{"id", "name"}).
+					AddRow(1, "Test1").
+					AddRow(2, "Test2")
+				mock.ExpectQuery("SELECT count\\(\\*\\) FROM `dummy_entities`").WillReturnRows(countRows)
+				mock.ExpectQuery("SELECT (.+) FROM `dummy_entities`").WillReturnRows(rows)
+			},
+			assertion: assert.NoError,
+			expected: []*DummyDomain{
+				{ID: 1, Name: "Test1"},
+				{ID: 2, Name: "Test2"},
+			},
+			count: 5,
 		},
 		{
 			name: "Failure_CountError",
@@ -379,6 +509,7 @@ func TestRepository_FindByConditionsWithPagination(t *testing.T) {
 				pagination: map[string]int{"page": 1, "limit": 2},
 				conditions: map[string]any{"name": "Test"},
 			},
+			adapterConfig: DummyAdapter{},
 			setupMock: func(mock sqlmock.Sqlmock) {
 				mock.ExpectQuery("SELECT count\\(\\*\\) FROM `dummy_entities`").WillReturnError(gorm.ErrInvalidField)
 			},
@@ -392,10 +523,30 @@ func TestRepository_FindByConditionsWithPagination(t *testing.T) {
 				pagination: map[string]int{"page": 1, "limit": 2},
 				conditions: map[string]any{"name": "Test"},
 			},
+			adapterConfig: DummyAdapter{},
 			setupMock: func(mock sqlmock.Sqlmock) {
 				countRows := sqlmock.NewRows([]string{"count"}).AddRow(2)
 				mock.ExpectQuery("SELECT count\\(\\*\\) FROM `dummy_entities`").WillReturnRows(countRows)
 				mock.ExpectQuery("SELECT (.+) FROM `dummy_entities`").WillReturnError(gorm.ErrInvalidField)
+			},
+			assertion: assert.Error,
+			expected:  nil,
+			count:     0,
+		},
+		{
+			name: "Failure_AdapterToDomainsError",
+			args: args{
+				pagination: map[string]int{"page": 1, "limit": 2},
+				conditions: map[string]any{"name": "Test"},
+			},
+			adapterConfig: DummyAdapter{ShouldFailToDomains: true},
+			setupMock: func(mock sqlmock.Sqlmock) {
+				countRows := sqlmock.NewRows([]string{"count"}).AddRow(2)
+				rows := sqlmock.NewRows([]string{"id", "name"}).
+					AddRow(1, "Test1").
+					AddRow(2, "Test2")
+				mock.ExpectQuery("SELECT count\\(\\*\\) FROM `dummy_entities`").WillReturnRows(countRows)
+				mock.ExpectQuery("SELECT (.+) FROM `dummy_entities`").WillReturnRows(rows)
 			},
 			assertion: assert.Error,
 			expected:  nil,
@@ -407,7 +558,7 @@ func TestRepository_FindByConditionsWithPagination(t *testing.T) {
 		tc := tt
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			repo, mockedDB, _, sqlMock, _, _ := setupTest(t)
+			repo, mockedDB, _, sqlMock, _, _ := setupTest(t, tc.adapterConfig)
 			defer teardownTest(mockedDB)
 
 			tc.setupMock(sqlMock)
@@ -426,7 +577,7 @@ func TestRepository_DB_WithTransaction(t *testing.T) {
 
 	t.Run("TransactionInContext", func(t *testing.T) {
 		t.Parallel()
-		repo, mockedDB, gormDB, _, _, _ := setupTest(t)
+		repo, mockedDB, gormDB, _, _, _ := setupTest(t, DummyAdapter{})
 		defer teardownTest(mockedDB)
 
 		// Create a mock transaction
@@ -442,7 +593,7 @@ func TestRepository_DB_WithTransaction(t *testing.T) {
 
 	t.Run("NoTransactionInContext", func(t *testing.T) {
 		t.Parallel()
-		repo, mockedDB, gormDB, _, _, _ := setupTest(t)
+		repo, mockedDB, gormDB, _, _, _ := setupTest(t, DummyAdapter{})
 		defer teardownTest(mockedDB)
 
 		// Use a context without a transaction
