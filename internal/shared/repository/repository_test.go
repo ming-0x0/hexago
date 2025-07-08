@@ -43,7 +43,11 @@ func (a DummyAdapter) ToEntity(domain *DummyDomain) (*DummyEntity, error) {
 func (a DummyAdapter) ToDomains(entities []*DummyEntity) ([]*DummyDomain, error) {
 	domains := make([]*DummyDomain, len(entities))
 	for i, e := range entities {
-		domains[i] = &DummyDomain{ID: e.ID, Name: e.Name}
+		d, err := a.ToDomain(e)
+		if err != nil {
+			return nil, err
+		}
+		domains[i] = d
 	}
 	return domains, nil
 }
@@ -51,7 +55,11 @@ func (a DummyAdapter) ToDomains(entities []*DummyEntity) ([]*DummyDomain, error)
 func (a DummyAdapter) ToEntities(domains []*DummyDomain) ([]*DummyEntity, error) {
 	entities := make([]*DummyEntity, len(domains))
 	for i, d := range domains {
-		entities[i] = &DummyEntity{ID: d.ID, Name: d.Name}
+		e, err := a.ToEntity(d)
+		if err != nil {
+			return nil, err
+		}
+		entities[i] = e
 	}
 	return entities, nil
 }
@@ -335,14 +343,14 @@ func TestRepository_FindByConditionsWithPagination(t *testing.T) {
 		conditions map[string]any
 	}
 
-		tests := []struct {
-			name      string
-			args      args
-			setupMock func(sqlmock.Sqlmock)
-			assertion assert.ErrorAssertionFunc
-			expected  []*DummyDomain
-			count     int64
-		}{
+	tests := []struct {
+		name      string
+		args      args
+		setupMock func(sqlmock.Sqlmock)
+		assertion assert.ErrorAssertionFunc
+		expected  []*DummyDomain
+		count     int64
+	}{
 		{
 			name: "Success",
 			args: args{
