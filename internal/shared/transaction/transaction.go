@@ -12,6 +12,7 @@ const (
 	Tx TxKey = "tx"
 )
 
+//go:generate go tool mockgen -destination mock/transaction.go -package mock github.com/ming-0x0/hexago/internal/shared/transaction TransactionInterface
 type TransactionInterface interface {
 	Do(ctx context.Context, fn func(ctx context.Context) error) error
 }
@@ -20,7 +21,7 @@ type Transaction struct {
 	db *gorm.DB
 }
 
-func NewTransaction(db *gorm.DB) TransactionInterface {
+func NewTransaction(db *gorm.DB) *Transaction {
 	return &Transaction{
 		db: db,
 	}
