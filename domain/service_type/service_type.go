@@ -2,7 +2,7 @@ package service_type
 
 import (
 	validation "github.com/go-ozzo/ozzo-validation/v4"
-	"github.com/ming-0x0/hexago/internal/shared/errors"
+	"github.com/ming-0x0/hexago/shared/errors"
 )
 
 var (

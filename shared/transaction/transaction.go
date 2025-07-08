@@ -12,7 +12,7 @@ const (
 	Tx TxKey = "tx"
 )
 
-//go:generate go tool mockgen -destination mock/transaction.go -package mock github.com/ming-0x0/hexago/internal/shared/transaction TransactionInterface
+//go:generate go tool mockgen -destination mock/transaction.go -package mock github.com/ming-0x0/hexago/shared/transaction TransactionInterface
 type TransactionInterface interface {
 	Do(ctx context.Context, fn func(ctx context.Context) error) error
 }

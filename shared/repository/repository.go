@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	sharedErrors "github.com/ming-0x0/hexago/internal/shared/errors"
-	"github.com/ming-0x0/hexago/internal/shared/transaction"
+	sharedErrors "github.com/ming-0x0/hexago/shared/errors"
+	"github.com/ming-0x0/hexago/shared/transaction"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
@@ -26,7 +26,7 @@ type AdapterInterface[D, E any] interface {
 	ToEntities([]*D) ([]*E, error)
 }
 
-//go:generate go tool mockgen -destination mock/repository.go -package mock github.com/ming-0x0/hexago/internal/shared/repository RepositoryInterface
+//go:generate go tool mockgen -destination mock/repository.go -package mock github.com/ming-0x0/hexago/shared/repository RepositoryInterface
 type RepositoryInterface[A AdapterInterface[D, E], D, E any] interface {
 	Create(
 		ctx context.Context,

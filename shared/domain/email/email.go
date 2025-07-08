@@ -3,7 +3,7 @@ package email
 import (
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/go-ozzo/ozzo-validation/v4/is"
-	"github.com/ming-0x0/hexago/internal/shared/errors"
+	"github.com/ming-0x0/hexago/shared/errors"
 )
 
 type Email struct {

@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/ming-0x0/hexago/internal/shared/dbmocker"
-	"github.com/ming-0x0/hexago/internal/shared/errors"
-	"github.com/ming-0x0/hexago/internal/shared/transaction"
+	"github.com/ming-0x0/hexago/shared/dbmocker"
+	"github.com/ming-0x0/hexago/shared/errors"
+	"github.com/ming-0x0/hexago/shared/transaction"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/gorm"

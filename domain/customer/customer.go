@@ -1,8 +1,8 @@
 package customer
 
 import (
-	"github.com/ming-0x0/hexago/internal/modules/customer/domain/service_type"
-	"github.com/ming-0x0/hexago/internal/shared/domain/email"
+	"github.com/ming-0x0/hexago/domain/service_type"
+	"github.com/ming-0x0/hexago/shared/domain/email"
 )
 
 type ID string
