@@ -6,6 +6,7 @@ import (
 	"github.com/ming-0x0/hexago/shared/errors"
 )
 
+//go:generate accessor -type=Email
 type Email struct {
 	value string
 }
@@ -20,10 +21,6 @@ func New(value string) (*Email, error) {
 	}
 
 	return e, nil
-}
-
-func (e *Email) Value() string {
-	return e.value
 }
 
 func (e *Email) validate() error {

@@ -11,12 +11,9 @@ var (
 	KhoaHoc   = ServiceType{value: 3}
 )
 
+//go:generate accessor -type=ServiceType
 type ServiceType struct {
 	value int
-}
-
-func (s *ServiceType) Value() int {
-	return s.value
 }
 
 func New(value int) (*ServiceType, error) {
