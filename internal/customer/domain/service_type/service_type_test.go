@@ -10,7 +10,7 @@ func TestNew(t *testing.T) {
 	t.Parallel()
 
 	type args struct {
-		value int
+		value int64
 	}
 
 	tests := []struct {
@@ -19,22 +19,22 @@ func TestNew(t *testing.T) {
 		assertion assert.ErrorAssertionFunc
 	}{
 		{
-			name:      "valid value 1 (TuyenDung)",
+			name:      "Valid_Value_1_TuyenDung",
 			args:      args{value: 1},
 			assertion: assert.NoError,
 		},
 		{
-			name:      "valid value 2 (LienHe)",
+			name:      "Valid_Value_2_LienHe",
 			args:      args{value: 2},
 			assertion: assert.NoError,
 		},
 		{
-			name:      "valid value 3 (KhoaHoc)",
+			name:      "Valid_Value_3_KhoaHoc",
 			args:      args{value: 3},
 			assertion: assert.NoError,
 		},
 		{
-			name:      "invalid value",
+			name:      "Invalid_Value_4",
 			args:      args{value: 4},
 			assertion: assert.Error,
 		},

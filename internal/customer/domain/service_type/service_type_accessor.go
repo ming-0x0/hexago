@@ -3,6 +3,6 @@
 package service_type
 
 // Value return value value
-func (t ServiceType) Value() int {
+func (t ServiceType) Value() int64 {
 	return t.value
 }

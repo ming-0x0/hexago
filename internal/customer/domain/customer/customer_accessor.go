@@ -4,7 +4,9 @@ package customer
 
 import (
 	"github.com/ming-0x0/hexago/internal/customer/domain/service_type"
+	"github.com/ming-0x0/hexago/internal/customer/domain/status"
 	"github.com/ming-0x0/hexago/internal/shared/domain/email"
+	"github.com/ming-0x0/hexago/internal/shared/undefined"
 )
 
 // ID return id value
@@ -27,7 +29,27 @@ func (t Customer) PhoneNumber() string {
 	return t.phoneNumber
 }
 
+// CompanyName return companyName value
+func (t Customer) CompanyName() undefined.Undefined[string] {
+	return t.companyName
+}
+
+// Message return message value
+func (t Customer) Message() undefined.Undefined[string] {
+	return t.message
+}
+
+// Note return note value
+func (t Customer) Note() undefined.Undefined[string] {
+	return t.note
+}
+
 // ServiceType return serviceType value
 func (t Customer) ServiceType() service_type.ServiceType {
 	return t.serviceType
+}
+
+// Status return status value
+func (t Customer) Status() status.Status {
+	return t.status
 }

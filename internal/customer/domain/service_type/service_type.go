@@ -13,10 +13,10 @@ var (
 
 //go:generate sh -c "$(go list -m -f '{{.Dir}}')/bin/accessor -type=ServiceType"
 type ServiceType struct {
-	value int
+	value int64
 }
 
-func New(value int) (*ServiceType, error) {
+func New(value int64) (*ServiceType, error) {
 	s := &ServiceType{value: value}
 	if err := s.validate(); err != nil {
 		return nil, err
