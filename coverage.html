@@ -57,7 +57,7 @@
 				
 				<option value="file0">github.com/ming-0x0/hexago/internal/customer/adapter/repository/mysql/customer/adapter.go (96.0%)</option>
 				
-				<option value="file1">github.com/ming-0x0/hexago/internal/customer/adapter/repository/mysql/customer/repository.go (0.0%)</option>
+				<option value="file1">github.com/ming-0x0/hexago/internal/customer/adapter/repository/mysql/customer/repository.go (100.0%)</option>
 				
 				<option value="file2">github.com/ming-0x0/hexago/internal/customer/domain/customer/customer.go (100.0%)</option>
 				
@@ -193,17 +193,18 @@ import (
         "github.com/ming-0x0/hexago/internal/shared/repository"
         "github.com/sirupsen/logrus"
         "gorm.io/gorm"
+        customerPort "github.com/ming-0x0/hexago/internal/customer/port/repository/mysql/customer"
 )
 
 type CustomerRepository struct {
-        *repository.Repository[*CustomerRepositoryAdapter, customer.Customer, entity.Customer]
+        *repository.Repository[customerPort.CustomerRepositoryAdapterInterface, customer.Customer, entity.Customer]
 }
 
 func New(
         db *gorm.DB,
         logger *logrus.Logger,
-        adapter *CustomerRepositoryAdapter,
-) *CustomerRepository <span class="cov0" title="0">{
+        adapter customerPort.CustomerRepositoryAdapterInterface,
+) *CustomerRepository <span class="cov8" title="1">{
         return &amp;CustomerRepository{
                 Repository: repository.NewRepository(db, logger, adapter),
         }

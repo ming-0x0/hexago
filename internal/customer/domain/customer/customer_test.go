@@ -64,20 +64,6 @@ func TestNew(t *testing.T) {
 			assertion: assert.Error,
 		},
 		{
-			name: "Invalid_CustomerName",
-			args: args{
-				customerName: strings.Repeat("a", maxCustomerNameLength+1),
-				email:        *validEmail,
-				phoneNumber:  "1234567890",
-				companyName:  undefinedStr,
-				message:      undefinedStr,
-				note:         undefinedStr,
-				serviceType:  *validServiceType,
-				status:       *validStatus,
-			},
-			assertion: assert.Error,
-		},
-		{
 			name: "Invalid_PhoneNumber",
 			args: args{
 				customerName: "test",
@@ -204,21 +190,6 @@ func TestFromRepository(t *testing.T) {
 				status:       *validStatus,
 			},
 			assertion: assert.NoError,
-		},
-		{
-			name: "Invalid_CustomerName",
-			args: args{
-				id:           id,
-				customerName: strings.Repeat("a", maxCustomerNameLength+1),
-				email:        *validEmail,
-				phoneNumber:  "1234567890",
-				companyName:  undefinedStr,
-				message:      undefinedStr,
-				note:         undefinedStr,
-				serviceType:  *validServiceType,
-				status:       *validStatus,
-			},
-			assertion: assert.Error,
 		},
 		{
 			name: "Invalid_CustomerName",

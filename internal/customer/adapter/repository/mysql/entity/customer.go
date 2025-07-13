@@ -19,3 +19,7 @@ type Customer struct {
 	Status       int64                       `gorm:"column:status;type:tinyint(1) unsigned;not null;default:2"`
 	entity.BaseEntityWithDeleted
 }
+
+func (Customer) TableName() string {
+	return CustomerTable
+}
